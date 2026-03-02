@@ -9,15 +9,12 @@ import type { EnvironmentMessage, StepState } from './messages';
 
 const consoleIterator = console[Symbol.asyncIterator]();
 
-// First, announce that we are a bot
-console.log("bot-start");
+console.log("bot-start"); // mandatory!
 
-// Get some information about the game
-const environment = await readMessage<EnvironmentMessage>("environment");
+const environment = await readMessage<EnvironmentMessage>("environment"); // mandatory!
 
-// Game loop, keep going forever
+// Game loop allowed to go forever (process will get killed when needed)
 while (true) {
-    // Read the current state of the game
     const state = await readMessage<StepState>("state");
 
     // Decide what you want your tank to do
@@ -35,7 +32,6 @@ while (true) {
             commands.push(new AccelerateCommand());
             break;
     }
-    // Send the commands to the game, you should always call this method exactly once per loop
     sendCommands(commands);
 }
 
