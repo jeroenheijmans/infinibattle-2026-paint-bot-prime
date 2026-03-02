@@ -18,6 +18,7 @@ export interface StepState {
   Tank: TankState;
   Hits: IncomingHitEvent[];
   TankScans: TankScanEvent[];
+  DestroyedTankScans: DestroyedTankScanEvent[];
   BulletScans: BulletScanEvent[];
   PowerupScans: PowerupScanEvent[];
   ChatMessages: ChatMessageEvent[];
@@ -56,6 +57,13 @@ export interface TankScanEvent {
   Location: Vector;
   Heading: number;
   Health: StatState;
+  IsEnemy: boolean;
+}
+
+export interface DestroyedTankScanEvent {
+  TankId: number;
+  Name: string;
+  Location: Vector;
   IsEnemy: boolean;
 }
 
