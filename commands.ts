@@ -2,29 +2,35 @@ export interface ICommand {
   toCommandString(): string;
 }
 
-export interface IStepCommand extends ICommand {
-  // marker interface for commands of which you may only do 1 per game step
-}
+export type IStepCommand =
+  | AccelerateCommand
+  | ReverseCommand
+  | BrakeCommand
+  | RotateCommand
+  | RotateTurretCommand
+  | FireGunCommand;
 
-export class AccelerateCommand implements IStepCommand {
+export type IFreeCommand = ChatCommand | LogCommand;
+
+export class AccelerateCommand {
   toCommandString(): string {
     return "accelerate";
   }
 }
 
-export class ReverseCommand implements IStepCommand {
+export class ReverseCommand {
   toCommandString(): string {
     return "reverse";
   }
 }
 
-export class BrakeCommand implements IStepCommand {
+export class BrakeCommand {
   toCommandString(): string {
     return "brake";
   }
 }
 
-export class RotateCommand implements IStepCommand {
+export class RotateCommand {
   constructor(public degrees: number) {}
 
   toCommandString(): string {
@@ -32,7 +38,7 @@ export class RotateCommand implements IStepCommand {
   }
 }
 
-export class RotateTurretCommand implements IStepCommand {
+export class RotateTurretCommand {
   constructor(public degrees: number) {}
 
   toCommandString(): string {
@@ -40,13 +46,13 @@ export class RotateTurretCommand implements IStepCommand {
   }
 }
 
-export class FireGunCommand implements IStepCommand {
+export class FireGunCommand {
   toCommandString(): string {
     return "fire-gun";
   }
 }
 
-export class ChatCommand implements ICommand {
+export class ChatCommand {
   constructor(public message: string) {}
 
   toCommandString(): string {
@@ -54,7 +60,7 @@ export class ChatCommand implements ICommand {
   }
 }
 
-export class LogCommand implements ICommand {
+export class LogCommand {
   constructor(public message: string) {}
 
   toCommandString(): string {

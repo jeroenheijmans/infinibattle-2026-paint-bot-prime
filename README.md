@@ -6,12 +6,12 @@
 
 ## Files
 
-| File | Purpose | Editable? |
-|------|---------|-----------|
-| `index.ts` | Bot logic | **Yes** — this is what we develop |
-| `commands.ts` | Command types (stdout) | **No** — never modify |
-| `messages.ts` | Message types (stdin) | **No** — never modify |
-| `README_GEARBOTS.md` | Complete game rules & protocol reference | Reference only |
+| File                 | Purpose                                  | Editable?                         |
+| -------------------- | ---------------------------------------- | --------------------------------- |
+| `index.ts`           | Bot logic                                | **Yes** — this is what we develop |
+| `commands.ts`        | Command types (stdout)                   | **No** — never modify             |
+| `messages.ts`        | Message types (stdin)                    | **No** — never modify             |
+| `README_GEARBOTS.md` | Complete game rules & protocol reference | Reference only                    |
 
 ## Testing
 

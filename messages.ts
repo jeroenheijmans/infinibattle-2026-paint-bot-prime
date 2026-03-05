@@ -38,6 +38,7 @@ export interface TankState {
   TurretHeading: number;
   Health: StatState; // at 0 tank is destroyed
   GunEnergy: StatState; // max is needed to fire the gun, recharges 1 point per game step
+  ChatEnergy: StatState;
 }
 
 export interface StatState {
@@ -55,6 +56,7 @@ export interface TankScanEvent {
   TankId: number;
   Name: string;
   Location: Vector;
+  TurretHeading: number;
   Heading: number;
   Health: StatState;
   IsEnemy: boolean;
