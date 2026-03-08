@@ -38,3 +38,5 @@ Other shapes:
 - **Green plus sign** for a healing power up.
 - **Green diagonal stripes** for areas to prefer slightly over other areas
 - **Pink diagonal stripes** for areas to avoid somewhat
+- **Azure blue-green stripes** for areas to focus on when scanning
+- **Azure deep dark lines** for preferred scanner (turret heading) locations

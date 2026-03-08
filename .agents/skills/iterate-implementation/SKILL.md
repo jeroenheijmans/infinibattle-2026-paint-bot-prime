@@ -5,4 +5,6 @@ description: "Iterate on the implemented strategy code by reviewing and improvin
 
 # Iterate Implementation SKILL
 
-When this skill is invoked, stop and inform the user that creating the skill is still a TODO.
+Evaluate the implemented `/strategy.ts` file.
+If you think it could work, just leave it alone.
+But if you spot obvious problems, try to fix them.

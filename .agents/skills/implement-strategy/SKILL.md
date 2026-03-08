@@ -18,3 +18,6 @@ Some general tips while implementing:
 - When "turning" the tank for direction, prevent "flapping" by staying consistent for some time in your direction.
 - Beware of friendly fire, you can hurt tanks in your team if you scan them
 - The longer it has been since you last fired your gun, the more important it becomes to fire your gun (unless a friendly tank is in direct line of fire)
+- Liberally use the "Gun Energy", don't let it sit at max level too long
+- You can add state to `/strategy.ts` outside the function to track things over time (e.g. how long it's been since you fired)
+- Don't accelerate if you are already at max speed, and if you want to cover some ground ensure your speed is high, near the max
