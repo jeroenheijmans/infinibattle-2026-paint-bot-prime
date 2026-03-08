@@ -21,3 +21,6 @@ Some general tips while implementing:
 - Liberally use the "Gun Energy", don't let it sit at max level too long
 - You can add state to `/strategy.ts` outside the function to track things over time (e.g. how long it's been since you fired)
 - Don't accelerate if you are already at max speed, and if you want to cover some ground ensure your speed is high, near the max
+- High priority: try to stay at least 35 units away from the walls, as it's easy to get "stuck" on the walls.
+- Prefer not to sweep your scanner outwards if you're near a wall. Put differently: you can calculate the surface area your sweep (and intended sweep after a `RotateTurret` command) and usually consider a larger covered area preferable.
+- When "tuning" for a strategy from the user, always check if your `Rotate` command is in the most efficient direction (clockwise or counterclockwise).
