@@ -22,3 +22,12 @@ Check each of these specifically — they are common sources of bugs:
 4. **Turret outward recovery**: If the turret can end up pointing toward a wall (outward), verify there's active correction steering it back toward center — not just a sweep reversal that oscillates.
 
 5. **No TypeScript errors**: Run the IDE error check to catch type issues.
+
+## Verification
+
+If you make any code changes you can verify them with:
+
+```
+bun x tsc --noEmit
+bun test
+```
