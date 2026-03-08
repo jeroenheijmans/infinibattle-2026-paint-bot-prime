@@ -2,7 +2,7 @@
 
 Top-down 2D tank battle. 2 teams × 3 tanks. Last team standing wins. No tank-to-tank collision.
 
-Note: This game is extremely similar to "Robocode".
+Note: This game is extremely similar to "Robocode" or "Robowars", but the physics and specifics of telemetry (data) for tanks is partially different.
 
 ## Core Constants
 

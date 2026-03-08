@@ -14,11 +14,6 @@ export function executeStrategyForStep(
   state: StepState,
 ): IStepCommand {
 
-  // Example strategy
-  if (state.Tank.GunEnergy.Value === state.Tank.GunEnergy.Max) {
-    return new FireGunCommand();
-  }
-  else {
-    return new RotateTurretCommand(2);
-  }
+  // Dummy strategy, just try to fire the gun each step:
+  return new FireGunCommand();
 }
