@@ -10,6 +10,11 @@ The image is a crude drawing (photo of crayon drawing, or digital paint document
 Use the [paint-istructions.md](./paint-instructions.md) file to see the instructions folks used for creating drawings.
 Interpret the image and turn it into a strategy document in markdown format: `/intermediary/interpretation.md`
 
+## Special case for "art"
+
+If the image is clearly not a strategy drawing following the `paint-instructions.md`, but some other type of image (a photo, a piece of art, or a colorful drawing, etc), then you should go into a completely different mode.
+Only in this scenario are you allowed to go all out in favorably interpreting the piece of art, in a way that it would lead to a good bot strategy.
+
 ## Secondary flavor
 
 Also write a flavorful description of the image and strategy into a file in markdown: `/intermediary/flavor-text.md`.
