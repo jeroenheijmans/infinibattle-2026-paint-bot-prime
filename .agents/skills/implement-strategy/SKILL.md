@@ -6,6 +6,7 @@ description: "Takes the implementation plan and turns it into a strategy impleme
 # Implement Strategy Skill
 
 Take the file `/intermediary/plan.md` as input: it contains the plan for implementing the strategy desired by the user.
+If the plan is not clear enough, fall back on the source for that plan which is `/intermediary/interpretation.md`.
 You are only allowed to update `/strategy.ts`, implementing the `executeStrategyForStep` function body.
 
 Read `/README_GEARBOTS.md` for a description of the game and its physics.
