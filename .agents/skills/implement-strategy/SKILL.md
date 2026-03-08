@@ -58,3 +58,11 @@ If the turret has drifted too far outward (pointing toward a nearby wall instead
 ### 4. Verify all code paths are reachable
 
 Since only 1 command can be returned, ensure that the decision tree doesn't make speed maintenance (acceleration) or other logic for specific commands unreachable.
+
+## Verification
+
+To verify if the code you generated is correct execute:
+
+```
+bun x tsc --noEmit
+```
