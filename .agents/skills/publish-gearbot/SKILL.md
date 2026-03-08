@@ -5,4 +5,10 @@ description: "Publish the final gearbot to participate in matches"
 
 # Publish Gearbot SKILL
 
-When this skill is invoked, stop and inform the user that creating the skill is still a TODO.
+Execute this to publish:
+
+```
+bun run publish
+```
+
+If the command gives zero output and a file `/publish.zip` (git ignored) exists, then all is well!
