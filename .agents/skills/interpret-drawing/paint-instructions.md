@@ -36,5 +36,5 @@ Other shapes:
 
 - **Yellow jagged shapes** or **yellow circular set of lines** for bullet hits and explosions
 - **Green plus sign** for a healing power up.
-- **Green diagonal stripes** for areas to prefer
-- **Pink diagonal stripes** for areas to avoid
+- **Green diagonal stripes** for areas to prefer slightly over other areas
+- **Pink diagonal stripes** for areas to avoid somewhat
