@@ -61,8 +61,11 @@ Since only 1 command can be returned, ensure that the decision tree doesn't make
 
 ## Verification
 
-To verify if the code you generated is correct execute:
+To verify if the code you generated is correct, run both:
 
 ```
 bun x tsc --noEmit
+bun test
 ```
+
+The test suite in `/strategy.test.ts` runs smoke tests over `executeStrategyForStep` with a range of inputs — all tests should pass and serve as a quick sanity check that the function returns a command in every scenario.
