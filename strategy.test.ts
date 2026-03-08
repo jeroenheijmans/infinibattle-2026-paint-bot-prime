@@ -146,4 +146,130 @@ describe('executeStrategyForStep smoke tests', () => {
     })));
   });
 
+  test('gun fully depleted', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      Tank: { GunEnergy: stat(0, 15) },
+    })));
+  });
+
+  test('health at 1 (critical), enemy nearby', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      Tank: { Health: stat(1, 10), Location: { X: 400, Y: 400 } },
+      TankScans: [
+        { TankId: 2, Name: 'Enemy1', Location: { X: 420, Y: 400 }, Heading: 180, TurretHeading: 0, Health: stat(10, 10), IsEnemy: true },
+      ],
+    })));
+  });
+
+  test('moving at max reverse speed', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      Tank: { Velocity: -4, Heading: 45 },
+    })));
+  });
+
+  test('turret pointing exactly at enemy', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      Tank: { TurretHeading: 90, Location: { X: 400, Y: 400 }, GunEnergy: stat(15, 15) },
+      TankScans: [
+        { TankId: 2, Name: 'Enemy1', Location: { X: 600, Y: 400 }, Heading: 0, TurretHeading: 0, Health: stat(10, 10), IsEnemy: true },
+      ],
+    })));
+  });
+
+  test('enemy destroyed scan reported', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      DestroyedTankScans: [
+        { TankId: 3, Name: 'Enemy2', Location: { X: 300, Y: 500 }, IsEnemy: true },
+      ],
+    })));
+  });
+
+  test('bullet incoming from the right', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      Tank: { Location: { X: 400, Y: 400 } },
+      BulletScans: [
+        { BulletId: 1, Location: { X: 600, Y: 400 }, Velocity: { X: -10, Y: 0 } },
+      ],
+    })));
+  });
+
+  test('two bullets converging on position', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      Tank: { Location: { X: 400, Y: 400 } },
+      BulletScans: [
+        { BulletId: 1, Location: { X: 600, Y: 400 }, Velocity: { X: -10, Y: 0 } },
+        { BulletId: 2, Location: { X: 400, Y: 600 }, Velocity: { X: 0,   Y: -10 } },
+      ],
+    })));
+  });
+
+  test('healing powerup available, health full', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      Tank: { Health: stat(10, 10), Location: { X: 400, Y: 400 } },
+      PowerupScans: [{ Id: 2, Location: { X: 410, Y: 400 }, Type: 'Healing' }],
+    })));
+  });
+
+  test('multiple powerups visible', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      Tank: { Health: stat(4, 10) },
+      PowerupScans: [
+        { Id: 3, Location: { X: 200, Y: 200 }, Type: 'Healing' },
+        { Id: 4, Location: { X: 600, Y: 600 }, Type: 'GunEnergy' },
+      ],
+    })));
+  });
+
+  test('exact corner bottom-right', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      Tank: { Location: { X: 790, Y: 790 }, Heading: 135 },
+    })));
+  });
+
+  test('heading exactly south (180), enemy directly north', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      Tank: { Location: { X: 400, Y: 400 }, Heading: 180, TurretHeading: 0 },
+      TankScans: [
+        { TankId: 2, Name: 'Enemy1', Location: { X: 400, Y: 200 }, Heading: 180, TurretHeading: 180, Health: stat(3, 10), IsEnemy: true },
+      ],
+    })));
+  });
+
+  test('ally scan only, no enemies visible', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      TankScans: [
+        { TankId: 1, Name: 'Ally', Location: { X: 450, Y: 450 }, Heading: 90, TurretHeading: 0, Health: stat(10, 10), IsEnemy: false },
+      ],
+    })));
+  });
+
+  test('very early step (step 0)', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({ Step: 0 })));
+  });
+
+  test('low health, no powerups, surrounded by two enemies', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      Tank: { Health: stat(2, 10), Location: { X: 400, Y: 400 } },
+      TankScans: [
+        { TankId: 2, Name: 'Enemy1', Location: { X: 350, Y: 400 }, Heading: 90,  TurretHeading: 90,  Health: stat(10, 10), IsEnemy: true },
+        { TankId: 3, Name: 'Enemy2', Location: { X: 450, Y: 400 }, Heading: 270, TurretHeading: 270, Health: stat(10, 10), IsEnemy: true },
+      ],
+    })));
+  });
+
+  test('against left wall moving leftward, enemy behind', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      Tank: { Location: { X: 15, Y: 400 }, Heading: 270, Velocity: 5 },
+      TankScans: [
+        { TankId: 2, Name: 'Enemy1', Location: { X: 200, Y: 400 }, Heading: 90, TurretHeading: 270, Health: stat(8, 10), IsEnemy: true },
+      ],
+    })));
+  });
+
+  test('chat energy full', () => {
+    expectValidCommand(executeStrategyForStep(env, makeState({
+      Tank: { ChatEnergy: stat(25, 25) },
+    })));
+  });
+
 });
