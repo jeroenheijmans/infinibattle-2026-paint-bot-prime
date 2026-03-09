@@ -10,10 +10,12 @@ Repo to create a Gearbots (Robowars clone) tank bot with a strategy derived from
 
 | File / Folder         | Purpose                                  | Editable?                                      |
 | --------------------- | ---------------------------------------- | ---------------------------------------------- |
-| `/intermediar/*`      | Intermediary files for the process       | **Yes** - SKILLS leave intermediary files here |
-| `/index.ts`           | Bot logic                                | **Yes** — this is what we develop              |
-| `/commands.ts`        | Command types (stdout)                   | **No** — never modify                          |
-| `/messages.ts`        | Message types (stdin)                    | **No** — never modify                          |
+| `/intermediary/*`     | Intermediary files for the process       | **Yes** - SKILLS leave intermediary files here |
+| `/strategy.ts`        | Our place to add strats                  | **Yes** — this is what we develop              |
+| `/chat.ts`            | Our place to add banter                  | **Yes** — but for flavor only                  |
+| `/index.ts`           | Main entry point                         | **No** — never modify                          |
+| `/commands.ts`        | Command types (stdout)                   | **No** — never modify but use as input         |
+| `/messages.ts`        | Message types (stdin)                    | **No** — never modify but use as input         |
 | `/README_GEARBOTS.md` | Complete game rules & protocol reference | Reference only                                 |
 
 ## Testing
