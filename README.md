@@ -31,4 +31,5 @@ The base plan to create a bot with these steps (there are skills for each):
 2. **Plan** (plan-implementation): Turn strategy document into implementation plan.
 3. **Implement** (implement-strategy): Turn implementation plan into actual strategy code.
 4. **Iterate** (iterate-implementation): Run automated checks and iterate on code if needed.
-5. **Publish** (publish-gearbot): Package the result in a zip file.
+5. **Banter** (add-chat-banter): Create a simple set of chat messages basec on flavor text.
+6. **Publish** (publish-gearbot): Package the result in a zip file.

@@ -1,4 +1,5 @@
-import { ChatCommand, LogCommand, type ICommand } from "./commands";
+import { createBanter } from "./chat";
+import { type ICommand } from "./commands";
 import type { EnvironmentMessage, StepState } from "./messages";
 import { executeStrategyForStep } from "./strategy";
 
@@ -23,21 +24,23 @@ while (true) {
   
   const commands: ICommand[] = [executeStrategyForStep(environment, state)];
 
-  if (state.Tank.Id === 0) {
-    commands.push(
-        new LogCommand(``
-        + ` | Health = ${String(state.Tank.Health.Value).padStart(2)}`
-        + ` | Gun = ${String(state.Tank.GunEnergy.Value).padStart(2)}`
-        + ` | Location = ${String(Math.round(state.Tank.Location.X)).padStart(3)}, ${String(Math.round(state.Tank.Location.Y)).padStart(3)}`
-        + ` | Velocity = ${state.Tank.Velocity}`
-        + ` | Heading = ${String(state.Tank.Heading).padStart(3)}`
-        + ` | TurretHeading = ${String(state.Tank.TurretHeading).padStart(3)}`
-        + ` | Chat = ${String(state.Tank.ChatEnergy.Value).padStart(2)}`
-        ),
-    );
+  // if (state.Tank.Id === 0) {
+  //   commands.push(
+  //       new LogCommand(``
+  //       + ` | Health = ${String(state.Tank.Health.Value).padStart(2)}`
+  //       + ` | Gun = ${String(state.Tank.GunEnergy.Value).padStart(2)}`
+  //       + ` | Location = ${String(Math.round(state.Tank.Location.X)).padStart(3)}, ${String(Math.round(state.Tank.Location.Y)).padStart(3)}`
+  //       + ` | Velocity = ${state.Tank.Velocity}`
+  //       + ` | Heading = ${String(state.Tank.Heading).padStart(3)}`
+  //       + ` | TurretHeading = ${String(state.Tank.TurretHeading).padStart(3)}`
+  //       + ` | Chat = ${String(state.Tank.ChatEnergy.Value).padStart(2)}`
+  //       ),
+  //   );
+  // }
     
-    if (state.Tank.ChatEnergy.Value === state.Tank.ChatEnergy.Max) {
-        commands.push(new ChatCommand(`I'm ${environment.Tanks.find(t => t.Id === state.Tank.Id)?.TeamName} #${state.Tank.Id}`));
+  if (state.Tank.ChatEnergy.Value === state.Tank.ChatEnergy.Max) {
+    if (Math.random() < 0.02) {
+      commands.push(createBanter(environment, state));
     }
   }
 

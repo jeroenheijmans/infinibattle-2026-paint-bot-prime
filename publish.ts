@@ -3,7 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { zip } from "compressing";
 
 const ROOT = process.cwd();
-const PUB = `${ROOT}/publish`;
+const PUB = `${ROOT}/.publish`;
 
 await mkdir(PUB, { recursive: true });
 
@@ -25,3 +25,5 @@ for (const pattern of targets) {
 }
 
 await zip.compressDir(PUB, `${ROOT}/publish.zip`, { ignoreBase: true });
+
+console.log("Successfully created /publish.zip");

@@ -26,6 +26,12 @@ Some general tips while implementing:
 - Prefer not to sweep your scanner outwards if you're near a wall. Put differently: you can calculate the surface area your sweep (and intended sweep after a `RotateTurret` command) and usually consider a larger covered area preferable.
 - When "tuning" for a strategy from the user, always check if your `Rotate` command is in the most efficient direction (clockwise or counterclockwise).
 
+## Seperate bots
+
+There will be three instances of your strategy running, one for each bot in your team.
+The bots cannot communicate easily, so don't try that.
+Often one strategy for all bots is great, but if you want to split things up you could do it based on your ID (either `[0, 1, 2]` if you're in team 1, or `[3, 4, 5]` if you're in team 2).
+
 ## Critical implementation patterns (learned from past runs)
 
 These are common bugs that have occurred before. You MUST address each one:

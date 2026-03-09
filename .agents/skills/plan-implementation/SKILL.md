@@ -8,6 +8,12 @@ description: "Turn the interpretation.md document into a code implementation pla
 Turn the file `/intermediary/interpretation.md` into a plan for code implementation of that strategy.
 Write the plan to the file `/intermediary/plan.md`.
 
+## Seperate bots
+
+There will be three instances of your strategy running, one for each bot in your team.
+The bots cannot communicate easily, so don't try that.
+Often one strategy for all bots is great, but if you want to split things up you could do it based on your ID (either `[0, 1, 2]` if you're in team 1, or `[3, 4, 5]` if you're in team 2).
+
 ## Missing interpretation
 
 The interpretation document should always explicitly address these aspects, but if it doesn't then infer reasonable defaults:
