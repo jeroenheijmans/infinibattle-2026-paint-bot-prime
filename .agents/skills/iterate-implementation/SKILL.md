@@ -27,6 +27,5 @@ Check each of these specifically — they are common sources of bugs:
 If you make any code changes you can verify them with:
 
 ```
-bun x tsc --noEmit
-bun test
+bun run check
 ```

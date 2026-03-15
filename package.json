@@ -4,7 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "publish": "bun run publish.ts"
+    "publish": "bun run publish.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "tsc --noEmit && bun test"
   },
   "devDependencies": {
     "compressing": "^2.1.0",

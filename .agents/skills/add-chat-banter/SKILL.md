@@ -22,9 +22,8 @@ You can safely assume that the `createBanter` function you're implementing is on
 
 ## Verification
 
-To verify if the code you generated is correct, run both:
+To verify if the code you generated is correct, run:
 
 ```
-bun x tsc --noEmit
-bun test
+bun run check
 ```
