@@ -21,13 +21,11 @@ let trackedLostCount: number = 0;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const WALL_DANGER = 40;
 const MIN_SWEEP_HOLD = 12;
 const MIN_BODY_HOLD = 8;
 const TRACK_TIMEOUT = 20;
 const ACCEL_THRESHOLD = 7;
 const SWEEP_ANGLE = 8;
-const OUTWARD_WALL_DIST = 80;
 
 // ─── Geometry helpers ─────────────────────────────────────────────────────────
 
@@ -89,6 +87,13 @@ export function executeStrategyForStep(
   const mapH = environment.MapSize.Height;
   const { X: px, Y: py } = tank.Location;
 
+  // Per-axis wall distances derived from map size
+  const wallDangerX = mapW * 0.08;   // hard zone: 8% of width
+  const wallDangerY = mapH * 0.08;   // hard zone: 8% of height
+  const wallSoftX   = mapW * 0.15;   // soft zone: start turning at 15% of width
+  const wallSoftY   = mapH * 0.15;   // soft zone: start turning at 15% of height
+  const outwardWallDist = Math.min(mapW, mapH) * 0.10;
+
   // ── 1. Emergency wall avoidance ─────────────────────────────────────────────
   //
   // Walls: top(Y=0), bottom(Y=mapH), left(X=0), right(X=mapW).
@@ -96,15 +101,15 @@ export function executeStrategyForStep(
   //   top → 0°, bottom → 180°, left → 270°, right → 90°
 
   const walls = [
-    { dist: py,          approachHeading: 0 },   // top
-    { dist: mapH - py,   approachHeading: 180 },  // bottom
-    { dist: px,          approachHeading: 270 },  // left
-    { dist: mapW - px,   approachHeading: 90 },   // right
+    { dist: py,          approachHeading: 0,   danger: wallDangerY, soft: wallSoftY },  // top
+    { dist: mapH - py,   approachHeading: 180, danger: wallDangerY, soft: wallSoftY },  // bottom
+    { dist: px,          approachHeading: 270, danger: wallDangerX, soft: wallSoftX },  // left
+    { dist: mapW - px,   approachHeading: 90,  danger: wallDangerX, soft: wallSoftX },  // right
   ];
 
-  let mostDangerousWall: { dist: number; approachHeading: number } | null = null;
+  let mostDangerousWall: typeof walls[0] | null = null;
   for (const wall of walls) {
-    if (wall.dist < WALL_DANGER && Math.abs(angleDiff(tank.Heading, wall.approachHeading)) < 90) {
+    if (wall.dist < wall.danger && Math.abs(angleDiff(tank.Heading, wall.approachHeading)) < 90) {
       if (!mostDangerousWall || wall.dist < mostDangerousWall.dist) {
         mostDangerousWall = wall;
       }
@@ -173,6 +178,43 @@ export function executeStrategyForStep(
     return new AccelerateCommand();
   }
 
+  // ── 3.5. Soft wall zone: begin turning early for smooth perimeter loop ────────
+  //
+  // Triggers before turret commands so steering doesn't lose to sweep/tracking.
+  // Fire and acceleration still happen first (priorities 2 & 3 above).
+
+  let softWall: typeof walls[0] | null = null;
+  for (const wall of walls) {
+    if (wall.dist < wall.soft && Math.abs(angleDiff(tank.Heading, wall.approachHeading)) < 90) {
+      if (!softWall || wall.dist < softWall.dist) {
+        softWall = wall;
+      }
+    }
+  }
+
+  if (softWall !== null) {
+    const wallApproach = softWall.approachHeading;
+    const optionA = normalizeAngle(wallApproach + 90);
+    const optionB = normalizeAngle(wallApproach - 90);
+    const diffA = Math.abs(angleDiff(tank.Heading, optionA));
+    const diffB = Math.abs(angleDiff(tank.Heading, optionB));
+    const desiredHeading = diffA <= diffB ? optionA : optionB;
+    const delta = angleDiff(tank.Heading, desiredHeading);
+
+    const newDirection = delta >= 0 ? 1 : -1;
+    if (bodyTurnHoldCount >= MIN_BODY_HOLD) {
+      if (newDirection !== bodyTurnDirection) {
+        bodyTurnDirection = newDirection;
+        bodyTurnHoldCount = 0;
+      }
+    }
+    bodyTurnHoldCount++;
+
+    const maxRot = 10 - 0.75 * Math.min(Math.abs(tank.Velocity), 8);
+    const rotDeg = Math.sign(bodyTurnDirection) * Math.min(maxRot, Math.abs(delta));
+    return new RotateCommand(rotDeg);
+  }
+
   // ── 4. Turret: track target or seesaw sweep ──────────────────────────────────
 
   // Update tracking state from current scans
@@ -198,8 +240,8 @@ export function executeStrategyForStep(
   if (PowerupScans.length > 0 && tank.Health.Value <= 6) {
     const safePickups = PowerupScans.filter(p =>
       p.Type === 'Healing' &&
-      p.Location.X > WALL_DANGER && p.Location.X < mapW - WALL_DANGER &&
-      p.Location.Y > WALL_DANGER && p.Location.Y < mapH - WALL_DANGER
+      p.Location.X > wallDangerX && p.Location.X < mapW - wallDangerX &&
+      p.Location.Y > wallDangerY && p.Location.Y < mapH - wallDangerY
     );
     if (safePickups.length > 0) {
       const nearest = safePickups.reduce((a, b) =>
@@ -250,7 +292,7 @@ export function executeStrategyForStep(
 
   // Outward recovery: if turret points toward a close wall, steer back to center
   const closestWallDist = Math.min(py, mapH - py, px, mapW - px);
-  if (closestWallDist < OUTWARD_WALL_DIST) {
+  if (closestWallDist < outwardWallDist) {
     // Determine which wall(s) are close and whether turret points at them
     const wallDirections = [
       { heading: 0,   wallDist: py },
@@ -259,7 +301,7 @@ export function executeStrategyForStep(
       { heading: 90,  wallDist: mapW - px },
     ];
     const pointingAtWall = wallDirections.some(w =>
-      w.wallDist < OUTWARD_WALL_DIST && Math.abs(angleDiff(tank.TurretHeading, w.heading)) < 30
+      w.wallDist < outwardWallDist && Math.abs(angleDiff(tank.TurretHeading, w.heading)) < 30
     );
     if (pointingAtWall) {
       const centerBearing = bearing(px, py, mapW / 2, mapH / 2);
