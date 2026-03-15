@@ -26,6 +26,9 @@ let specialModeTargetPowerupId: number = -1;
 let specialModeTargetX: number = 0;
 let specialModeTargetY: number = 0;
 let specialModeTargetMissedSteps: number = 0;
+let slowMoActive: boolean = false;
+let slowMoStartStep: number = -100;
+let slowMoLastEntryStep: number = -100;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -288,7 +291,21 @@ export function executeStrategyForStep(
 
   // ── 3. Maintain top speed ────────────────────────────────────────────────────
 
-  if (tank.Velocity < ACCEL_THRESHOLD) {
+  // SLOWMO mode: 1% random chance each step for tanks with ID divisible by 3,
+  // gated by a 40-step cooldown. Skips acceleration for 10 steps so the tank
+  // briefly decelerates (friction) to confuse enemies.
+  if (tank.Id % 3 === 0) {
+    if (!slowMoActive && state.Step - slowMoLastEntryStep > 40 && Math.random() < 0.01) {
+      slowMoActive = true;
+      slowMoStartStep = state.Step;
+      slowMoLastEntryStep = state.Step;
+    }
+    if (slowMoActive && state.Step - slowMoStartStep >= 40) {
+      slowMoActive = false;
+    }
+  }
+
+  if (!slowMoActive && tank.Velocity < ACCEL_THRESHOLD) {
     return new AccelerateCommand();
   }
 
