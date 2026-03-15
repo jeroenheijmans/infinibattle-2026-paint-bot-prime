@@ -14,19 +14,23 @@ import type { EnvironmentMessage, StepState, TankScanEvent, Vector } from './mes
 // ─────────────────────────────────────────────────────────────
 
 let seeSawMode: "accelerate" | "reverse" = "accelerate";
-let seeSawModeAge = 0;          // steps in current see-saw mode
-let turretSweepDir: 1 | -1 = 1; // +1=clockwise, -1=counter-clockwise
-let turretSweepSteps = 0;        // steps since last turret-sweep reversal
-let bodyRotateHold = 0;          // cooldown after wall-avoidance rotate (steps)
+let turretSweepDir: 1 | -1 = 1;
+let turretSweepSteps = 0;
+let softRotHold = 0;          // anti-flap hold for soft heading corrections
+let assignedHeading: number | null = null; // set once from tankId % 3
 
-const WALL_MARGIN = 40;
-const MIN_SWEEP_HOLD = 10;       // anti-flap: minimum steps before sweep can reverse
-const SWEEP_SPEED = 8;           // degrees/step for turret sweep
-const BULLET_SPEED = 15;         // units/step
-const LOW_SPEED_THRESHOLD = 4;   // if |velocity| < this, prioritise movement
-const SEE_SAW_THRESHOLD = 7;     // speed that triggers an immediate mode flip
-const SEE_SAW_MAX_AGE = 60;      // force mode flip after this many steps (≈2.4 s)
-const SCAN_RECOVER_DIST = 150;   // reverse sweep if next heading exits map sooner than this
+// Assigned travel axis per local bot index (tankId % 3)
+// 0 → East (90°), 1 → North (0°), 2 → SE diagonal (135°)
+const ASSIGNED_HEADINGS = [90, 0, 135] as const;
+
+const WALL_EMERGENCY = 40;    // distance threshold for emergency wall rotation
+const WALL_SOFT = 80;         // distance threshold for soft heading correction
+const MIN_SWEEP_HOLD = 10;    // min steps before turret sweep can reverse direction
+const SWEEP_SPEED = 8;        // degrees/step for turret sweep
+const BULLET_SPEED = 15;      // units/step
+const SEE_SAW_FLIP = 7.5;     // flip see-saw mode when |velocity| reaches this
+const TARGET_SPEED = 7.2;     // 90% of max speed (8) — must stay at or above this
+const SCAN_RECOVER_DIST = 150; // flip sweep if next heading exits map sooner than this
 
 // ─────────────────────────────────────────────────────────────
 // Pure helpers
@@ -36,7 +40,7 @@ function normalizeAngle360(deg: number): number {
   return ((deg % 360) + 360) % 360;
 }
 
-/** Wrap to (-180, 180] — the shortest signed delta */
+/** Wrap to (-180, 180] — the shortest signed delta. */
 function normalizeAngleDelta(deg: number): number {
   let d = ((deg % 360) + 360) % 360;
   if (d > 180) d -= 360;
@@ -57,12 +61,7 @@ function dist(a: Vector, b: Vector): number {
 }
 
 /** Distance the turret ray travels before hitting a map boundary. */
-function projectedScanDist(
-  turretHeading: number,
-  loc: Vector,
-  w: number,
-  h: number
-): number {
+function projectedScanDist(turretHeading: number, loc: Vector, w: number, h: number): number {
   const rad = (turretHeading * Math.PI) / 180;
   const dx = Math.sin(rad);
   const dy = -Math.cos(rad);
@@ -74,16 +73,24 @@ function projectedScanDist(
   return ts.length > 0 ? Math.min(...ts) : 9999;
 }
 
-/** True when `heading` is within 60° of `wallDir`. */
+/** True when `heading` is within 50° of `wallDir` (i.e. heading toward that wall). */
 function isTowardWall(heading: number, wallDir: number): boolean {
-  return Math.abs(normalizeAngleDelta(heading - wallDir)) < 60;
+  return Math.abs(normalizeAngleDelta(heading - wallDir)) < 50;
 }
 
-/** Pick the enemy that is lowest health (then nearest). */
-function pickBestTarget(
-  enemyScans: TankScanEvent[],
-  myLoc: Vector
-): TankScanEvent | null {
+/**
+ * Rotate toward the closer of two parallel headings.
+ * Returns a signed rotation clamped to ±10° (max body rotation).
+ */
+function rotateToward(heading: number, parallelA: number, parallelB: number): number {
+  const dA = normalizeAngleDelta(parallelA - heading);
+  const dB = normalizeAngleDelta(parallelB - heading);
+  const delta = Math.abs(dA) <= Math.abs(dB) ? dA : dB;
+  return Math.sign(delta) * Math.min(10, Math.abs(delta));
+}
+
+/** Pick the enemy with lowest health, breaking ties by proximity. */
+function pickBestTarget(enemyScans: TankScanEvent[], myLoc: Vector): TankScanEvent | null {
   const sorted = enemyScans.slice().sort((a, b) => {
     if (a.Health.Value !== b.Health.Value) return a.Health.Value - b.Health.Value;
     return dist(myLoc, a.Location) - dist(myLoc, b.Location);
@@ -105,15 +112,50 @@ function predictLocation(
       const dt = s2.Step - s1.Step;
       const velX = (s2.Location.X - s1.Location.X) / dt;
       const velY = (s2.Location.Y - s1.Location.Y) / dt;
-      const d = dist(myLoc, target.Location);
-      const travelTime = d / BULLET_SPEED;
+      const travelTime = dist(myLoc, target.Location) / BULLET_SPEED;
       return {
         X: target.Location.X + velX * travelTime,
         Y: target.Location.Y + velY * travelTime,
       };
     }
   }
-  return target.Location; // fallback: no prediction
+  return target.Location;
+}
+
+/**
+ * Soft heading correction: steer toward assigned axis in open field,
+ * or toward wall-parallel heading when near a wall.
+ * Returns 0 if already well-aligned (error < 5°).
+ */
+function softHeadingCorrection(
+  heading: number,
+  loc: Vector,
+  w: number,
+  h: number,
+  assigned: number
+): number {
+  const nearNS = loc.Y < WALL_SOFT || loc.Y > h - WALL_SOFT;
+  const nearEW = loc.X < WALL_SOFT || loc.X > w - WALL_SOFT;
+
+  let rot: number;
+  if (nearNS && nearEW) {
+    // Corner — align to whichever wall is closer
+    const distNS = Math.min(loc.Y, h - loc.Y);
+    const distEW = Math.min(loc.X, w - loc.X);
+    rot = distNS < distEW
+      ? rotateToward(heading, 90, 270)  // closer to N/S wall → E-W parallel
+      : rotateToward(heading, 0, 180);  // closer to E/W wall → N-S parallel
+  } else if (nearNS) {
+    rot = rotateToward(heading, 90, 270);  // near N/S wall → E-W parallel
+  } else if (nearEW) {
+    rot = rotateToward(heading, 0, 180);   // near E/W wall → N-S parallel
+  } else {
+    // Open field — align to assigned axis (or its 180° opposite)
+    rot = rotateToward(heading, assigned, (assigned + 180) % 360);
+  }
+
+  // Ignore tiny errors (< 5°) to avoid perpetual micro-adjustments
+  return Math.abs(rot) >= 5 ? rot : 0;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -131,58 +173,42 @@ export function executeStrategyForStep(
   const heading = tank.Heading;
   const turretH = tank.TurretHeading;
 
-  // ── 1. Emergency wall avoidance (highest priority) ─────────
-  if (bodyRotateHold > 0) {
-    bodyRotateHold--;
-  } else {
-    let wallRot: number | null = null;
+  // Tick down soft correction hold unconditionally each step
+  if (softRotHold > 0) softRotHold--;
 
-    if (Y < WALL_MARGIN && isTowardWall(heading, 0)) {
-      // Near north wall, heading north → rotate toward E or W
-      const dE = normalizeAngleDelta(90 - heading);
-      const dW = normalizeAngleDelta(270 - heading);
-      wallRot = Math.abs(dE) <= Math.abs(dW) ? Math.sign(dE) * 10 : Math.sign(dW) * 10;
-    } else if (Y > H - WALL_MARGIN && isTowardWall(heading, 180)) {
-      const dE = normalizeAngleDelta(90 - heading);
-      const dW = normalizeAngleDelta(270 - heading);
-      wallRot = Math.abs(dE) <= Math.abs(dW) ? Math.sign(dE) * 10 : Math.sign(dW) * 10;
-    } else if (X > W - WALL_MARGIN && isTowardWall(heading, 90)) {
-      const dN = normalizeAngleDelta(0 - heading);
-      const dS = normalizeAngleDelta(180 - heading);
-      wallRot = Math.abs(dN) <= Math.abs(dS) ? Math.sign(dN) * 10 : Math.sign(dS) * 10;
-    } else if (X < WALL_MARGIN && isTowardWall(heading, 270)) {
-      const dN = normalizeAngleDelta(0 - heading);
-      const dS = normalizeAngleDelta(180 - heading);
-      wallRot = Math.abs(dN) <= Math.abs(dS) ? Math.sign(dN) * 10 : Math.sign(dS) * 10;
-    }
-
-    if (wallRot !== null && wallRot !== 0) {
-      bodyRotateHold = 5;
-      return new RotateCommand(wallRot);
-    }
+  // Init assigned heading from tank ID (runs exactly once per bot lifetime)
+  if (assignedHeading === null) {
+    assignedHeading = ASSIGNED_HEADINGS[tank.Id % 3] ?? 90;
   }
 
-  // ── Update see-saw mode ────────────────────────────────────
-  seeSawModeAge++;
-  const forceFlip = seeSawModeAge >= SEE_SAW_MAX_AGE;
-  const speedFlip =
-    (seeSawMode === "accelerate" && tank.Velocity >= SEE_SAW_THRESHOLD) ||
-    (seeSawMode === "reverse" && tank.Velocity <= -SEE_SAW_THRESHOLD);
+  // ── 1. Emergency wall avoidance (highest priority, always runs) ──
+  // Self-limiting: once heading is parallel, isTowardWall returns false.
+  if (Y < WALL_EMERGENCY && isTowardWall(heading, 0)) {
+    return new RotateCommand(rotateToward(heading, 90, 270));
+  }
+  if (Y > H - WALL_EMERGENCY && isTowardWall(heading, 180)) {
+    return new RotateCommand(rotateToward(heading, 90, 270));
+  }
+  if (X > W - WALL_EMERGENCY && isTowardWall(heading, 90)) {
+    return new RotateCommand(rotateToward(heading, 0, 180));
+  }
+  if (X < WALL_EMERGENCY && isTowardWall(heading, 270)) {
+    return new RotateCommand(rotateToward(heading, 0, 180));
+  }
 
-  if (forceFlip || speedFlip) {
-    seeSawMode = seeSawMode === "accelerate" ? "reverse" : "accelerate";
-    seeSawModeAge = 0;
+  // ── Update see-saw mode (flip at ±7.5) ───────────────────
+  if (seeSawMode === "accelerate" && tank.Velocity >= SEE_SAW_FLIP) {
+    seeSawMode = "reverse";
+  } else if (seeSawMode === "reverse" && tank.Velocity <= -SEE_SAW_FLIP) {
+    seeSawMode = "accelerate";
   }
 
   const moveCmd = (): IStepCommand =>
     seeSawMode === "accelerate" ? new AccelerateCommand() : new ReverseCommand();
 
-  // ── 2. Identify enemies in scan ────────────────────────────
+  // ── 2. Fire (priority #1 per strategy, after emergency only) ──
   const enemyScans = state.TankScans.filter(s => s.IsEnemy);
-  const hasEnemy = enemyScans.length > 0;
-
-  // ── 3. Fire if gun ready and turret aligned on an enemy ────
-  if (tank.GunEnergy.Value >= tank.GunEnergy.Max && hasEnemy) {
+  if (tank.GunEnergy.Value >= tank.GunEnergy.Max && enemyScans.length > 0) {
     const target = pickBestTarget(enemyScans, tank.Location);
     if (target) {
       const aimAngle = angleTo(tank.Location, target.Location);
@@ -193,44 +219,49 @@ export function executeStrategyForStep(
     }
   }
 
-  // ── 4. Restore speed if too slow (beats turret ops) ────────
-  if (Math.abs(tank.Velocity) < LOW_SPEED_THRESHOLD) {
+  // ── 3. Speed maintenance — always stay at ≥90% of max ────
+  // In "accelerate" mode: push toward +7.2. In "reverse" mode: push toward -7.2.
+  const needsSpeed =
+    (seeSawMode === "accelerate" && tank.Velocity < TARGET_SPEED) ||
+    (seeSawMode === "reverse" && tank.Velocity > -TARGET_SPEED);
+  if (needsSpeed) {
     return moveCmd();
   }
 
-  // ── 5. Lock & predict on enemy OR sweep ────────────────────
-  if (hasEnemy) {
+  // ── At near-max speed — turret/correction window ──────────
+
+  // ── 4. Soft heading correction (ID-based spread + wall-parallel) ──
+  if (softRotHold === 0) {
+    const rot = softHeadingCorrection(heading, tank.Location, W, H, assignedHeading);
+    if (rot !== 0) {
+      softRotHold = 4;
+      return new RotateCommand(rot);
+    }
+  }
+
+  // ── 5. Turret: lock & predict on enemy ───────────────────
+  if (enemyScans.length > 0) {
     const target = pickBestTarget(enemyScans, tank.Location);
     if (target) {
       const predicted = predictLocation(target, tank.Location, allObservedTankScanEvents);
       const desiredAngle = angleTo(tank.Location, predicted);
       const delta = normalizeAngleDelta(desiredAngle - turretH);
       const clamped = Math.max(-10, Math.min(10, delta));
-      turretSweepSteps = 0; // not sweeping while tracking
+      turretSweepSteps = 0;
       return new RotateTurretCommand(clamped);
     }
   }
 
-  // ── 6. Turret sweep (anti-flap enforced) ───────────────────
-  {
-    turretSweepSteps++;
-
-    // Only consider reversing after the mandatory hold period
-    if (turretSweepSteps >= MIN_SWEEP_HOLD) {
-      const nextTurretH = normalizeAngle360(turretH + turretSweepDir * SWEEP_SPEED);
-      const nextDist = projectedScanDist(nextTurretH, tank.Location, W, H);
-
-      if (nextDist < SCAN_RECOVER_DIST) {
-        // Turret would aim at a near wall — flip sweep direction
-        turretSweepDir = (turretSweepDir * -1) as 1 | -1;
-        turretSweepSteps = 0;
-      } else if (turretSweepSteps >= MIN_SWEEP_HOLD * 3) {
-        // Regular cycle: reverse after 3× hold period
-        turretSweepDir = (turretSweepDir * -1) as 1 | -1;
-        turretSweepSteps = 0;
-      }
+  // ── 6. Turret sweep (anti-flap enforced) ─────────────────
+  turretSweepSteps++;
+  if (turretSweepSteps >= MIN_SWEEP_HOLD) {
+    const nextH = normalizeAngle360(turretH + turretSweepDir * SWEEP_SPEED);
+    const nextDist = projectedScanDist(nextH, tank.Location, W, H);
+    if (nextDist < SCAN_RECOVER_DIST || turretSweepSteps >= MIN_SWEEP_HOLD * 3) {
+      turretSweepDir = (turretSweepDir * -1) as 1 | -1;
+      turretSweepSteps = 0;
     }
-
-    return new RotateTurretCommand(turretSweepDir * SWEEP_SPEED);
   }
+  return new RotateTurretCommand(turretSweepDir * SWEEP_SPEED);
 }
+

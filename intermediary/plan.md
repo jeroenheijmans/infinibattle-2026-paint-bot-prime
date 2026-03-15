@@ -2,8 +2,15 @@
 
 ## Bot Identity
 
-- Same strategy runs for all 3 tanks on the team (no ID-based splitting needed — all bots seesaw identically).
-- Tank IDs: [0,1,2] or [3,4,5] depending on team assignment (available as `state.Tank.Id`).
+- Same strategy runs for all 3 tanks. Each bot has an **assigned travel axis** based on `tankId % 3`:
+
+| `tankId % 3` | Assigned heading | Axis |
+|---|---|---|
+| 0 | 90° (East) | East–West |
+| 1 | 0° (North) | North–South |
+| 2 | 135° (SE) | Diagonal |
+
+Assigned heading is stored in module-level state and set on the first step from `tank.Id`.
 
 ---
 
@@ -13,40 +20,22 @@
 seeSawMode: "accelerate" | "reverse"   // current see-saw direction
 turretSweepDir: 1 | -1                 // +1 = clockwise, -1 = counter-clockwise
 turretSweepHold: number                // steps remaining before allowed to flip turret direction
-bodyRotateHold: number                 // steps of hold after a wall-avoidance rotation
+softRotHold: number                    // cooldown after soft heading correction (steps)
+assignedHeading: number | null         // set once from tankId % 3
 ```
-
-Per-tank state is isolated because each bot runs as a separate process, so module-level variables are per-bot.
 
 ---
 
 ## Command Priority Order (highest → lowest)
 
-1. **Emergency wall avoidance** — if within ~40 units of any wall AND heading toward it → `rotate` away
-2. **Fire** — if gun is at max energy AND an enemy scan exists → `fire-gun`
-3. **Turret: lock & predict** — if enemy scan exists → `rotate-turret` toward predicted position
-4. **Turret: sweep** — default → `rotate-turret` in current sweep direction (see below)
-5. **See-saw movement** — `accelerate` or `reverse` depending on current mode
+1. **Emergency wall avoidance** — any wall within 40 units AND heading toward it (±50° of direct-into-wall): `rotate` to wall-parallel. This check **always runs every step** (no hold/cooldown — the `isTowardWall` condition is self-limiting once heading is parallel).
+2. **Fire** — gun full + enemy in scan cone + turret within 5° of enemy: `fire-gun`.
+3. **Speed maintenance (≥90% of max)** — `TARGET_SPEED = 7.2` (90% of 8). If `(seeSawMode=="accelerate" && velocity < 7.2)` OR `(seeSawMode=="reverse" && velocity > -7.2)`: emit `accelerate`/`reverse`. This is high-priority to keep the bot at near-max speed at all times.
+4. **Soft heading correction** — at near-max speed only; when `softRotHold === 0`, emit small `rotate` to align heading. Set `softRotHold = 4` after each correction to prevent oscillation. `softRotHold` decrements unconditionally every step regardless of what command was issued.
+5. **Turret lock & predict** — enemy in scan: `rotate-turret` toward predicted future position.
+6. **Turret sweep** — default: `rotate-turret` in current sweep direction.
 
-Only ONE step command is emitted per step. Since commands 1, 2 cover body rotation and firing (which don't conflict with one another in the real game, but the protocol only accepts the first `IStepCommand`), the priority determines which single command is written.
-
-**Resolution:** Since only ONE IStepCommand can be sent, the resolution rule is:
-- If emergency wall avoidance triggered → emit `rotate`
-- Else if gun full AND enemy visible → emit `fire-gun`
-- Else if enemy visible AND turret needs to aim → emit `rotate-turret`
-- Else if sweeping → emit `rotate-turret`
-- Else → emit `accelerate` or `reverse` (see-saw)
-
-In practice, movement is handled by the see-saw and acceleration/reverse, but the IStepCommand slot is occupied most of the time by turret rotation or firing. When using `rotate-turret` or `fire-gun`, the tank's velocity decays by friction (×0.98/step) but we do NOT brake intentionally — we accept that the tank may slow down when actively aiming. To regain speed, whenever we issue a turret command or fire, we ALSO track how many steps we haven't issued movement — if > 5 steps without a movement command AND no wall priority AND no firing, revert to see-saw movement.
-
-**Revised priority (cleaner version):**
-
-1. **Wall avoidance** (if near wall heading toward it): `rotate <deg>` — skip all below
-2. **Fire** (if gun full AND enemy visible): `fire-gun` — skip all below
-3. **Turret aim/sweep**: `rotate-turret <deg>` — covers both lock+predict and sweep — skip 4
-4. **See-saw movement**: `accelerate` or `reverse`
-
-Rationale: Movement via see-saw is the fallback. Firing beats turret rotation (since after firing, gun needs 15 steps to reload). Turret commands are evaluated every step — when aiming OR sweeping, the tank naturally slows; that's acceptable.
+**See-saw mode flipping:** Flip `seeSawMode` when `|velocity| >= 7.5` in the current direction (i.e., flip to "reverse" when accelerate reaches +7.5, flip to "accelerate" when reverse reaches −7.5). No time-based force-flip needed — the speed gate ensures it.
 
 ---
 
@@ -74,13 +63,10 @@ When wall avoidance fires, set `bodyRotateHold = 5` to prevent flip-flop. Decrem
 
 ## Section 2: See-Saw Movement
 
-- **Mode "accelerate"**: Emit `accelerate`.
-  - Switch to "reverse" when `state.Tank.Velocity >= 7` (near max).
-- **Mode "reverse"**: Emit `reverse`.
-  - Switch to "accelerate" when `state.Tank.Velocity <= -7` (near max negative).
-- Also switch mode when a wall collision is inferred (velocity is 0 AND previous velocity was nonzero going toward wall) — just flip mode.
-
-This is the fallback step command (priority 4).
+- **Mode "accelerate"**: Emit `accelerate`. Flip to "reverse" when `velocity >= +7.5`.
+- **Mode "reverse"**: Emit `reverse`. Flip to "accelerate" when `velocity <= -7.5`.
+- **Speed maintenance**: If not at 90% of target speed (`|velocity| < 7.2`), movement is priority 3 (beats turret). Always maintain near-max speed.
+- The tank will spend most steps either accelerating/reversing to rebuild speed, or briefly at near-max speed doing turret/correction operations.
 
 ---
 
@@ -105,7 +91,17 @@ Helper function: `projectedScanDistance(turretHeading, location, mapSize): numbe
 
 ---
 
-## Section 4: Enemy Targeting (Lock & Predict)
+## Section 4: Soft Heading Correction
+
+At near-max speed (priority 4 — below fire, below speed maintenance), issue a small `rotate` to steer toward the assigned axis or to be wall-parallel:
+
+- **Near N or S wall** (Y < 80 or Y > H−80): rotate to align with E–W (heading 90° or 270°, whichever is closer).
+- **Near E or W wall** (X < 80 or X > W−80): rotate to align with N–S (heading 0° or 180°, whichever is closer).
+- **Open field**: rotate to align with `assignedHeading` (or its opposite 180° away, whichever is closer to current heading).
+- Only apply if angular error ≥ 5°; clamp rotation to ±10°.
+- After any soft correction, set `softRotHold = 4` to prevent oscillation. `softRotHold` decrements every step unconditionally at the top of the function.
+
+## Section 5: Enemy Targeting (Lock & Predict)
 
 When `state.TankScans` contains at least one `IsEnemy === true` entry:
 

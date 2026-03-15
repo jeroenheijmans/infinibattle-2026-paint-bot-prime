@@ -6,16 +6,19 @@ PaintBot Prime is an aggressive, high-speed see-saw tank that never stops moving
 
 ---
 
-## Movement: See-Saw (No Rotation)
+## Movement: See-Saw With Alignment
 
-**Core principle:** The tank body NEVER rotates. Movement is exclusively achieved by alternating `accelerate` and `reverse` commands — a see-saw pattern of two modes.
+**Core principle:** Tank moves via alternating `accelerate` and `reverse` — a see-saw of two modes. Body rotation IS allowed when needed to align heading or avoid walls, but is kept to a minimum.
 
-- **Mode A (Accelerate):** Apply `accelerate` each step until reaching near-max speed (velocity ~7–8).
-- **Mode B (Reverse):** Apply `reverse` each step until near max reverse speed (velocity ~ -7 to -8).
-- Switch modes when reaching a speed threshold (near max in either direction) OR when approaching a wall.
-- The tank moves along whatever the initial heading dictates — it does **not** steer to adjust direction.
-- Wall collision resets velocity to 0; just resume the current mode after that.
-- This creates constant erratic back-and-forth motion that's hard to predict and keeps speed high.
+- **Mode A (Accelerate):** Apply `accelerate` until velocity ≥ 90% of max (+7.2). Switch to Mode B at that point.
+- **Mode B (Reverse):** Apply `reverse` until velocity ≤ −90% of max (−7.2). Switch to Mode A at that point.
+- **Speed rule:** Always maintain speed at or above 90% of max (7.2 units/step) in the current see-saw direction. Speed maintenance is obligatory — never coast below this.
+- **Bot spread by ID (tankId % 3):** Each bot has an assigned travel axis to prevent convergence on the same wall:
+  - Bot local index 0 → East–West axis (heading 90° or 270°)
+  - Bot local index 1 → North–South axis (heading 0° or 180°)
+  - Bot local index 2 → Diagonal axis (heading 135° or 315°)
+- **Soft heading correction:** When at near-max speed (and no higher-priority action), issue small `rotate` commands to align heading to the assigned axis or to be wall-parallel when near a wall.
+- Wall collision resets velocity to 0; resume current mode immediately.
 
 ---
 
@@ -63,9 +66,11 @@ Fire when the gun is ready (`GunEnergy` at max = 15) AND there is an enemy withi
 
 ## Priority Order
 
-1. **FIRE** — If gun is loaded and enemy is in scanner cone, fire. Always.
-2. **TOP SPEED** — Always be moving at or near maximum speed (accelerate or reverse). Never idle.
-3. **SWEEP, FOLLOW & PREDICT** — Keep scanning; when enemy found, predict and track; lead shots.
+1. **WALL EMERGENCY** — Any wall closer than 40 units AND heading toward it: rotate to wall-parallel immediately.
+2. **FIRE** — Gun loaded + enemy in scanner cone + turret within 5°: fire. Always.
+3. **TOP SPEED (≥90%)** — If velocity is more than 10% below target (i.e., |v| < 7.2): accelerate or reverse. Never idle.
+4. **SOFT HEADING CORRECTION** — At near-max speed, small rotate to align to assigned axis or wall-parallel.
+5. **SWEEP, FOLLOW & PREDICT** — Keep scanning; when enemy found, predict and track; lead shots.
 
 ---
 
