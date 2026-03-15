@@ -75,6 +75,45 @@ function coverageScore(px: number, py: number, turretHeading: number, mapW: numb
   );
 }
 
+/**
+ * Clamp a turret rotation so the resulting heading never points into a nearby wall.
+ * "Nearby" is defined by the soft-zone distances wallSoftX/Y.
+ * The hardest allowed heading is parallel to the wall (90° away from its approach direction).
+ */
+function safeTurretRotate(
+  currentHeading: number,
+  rotDeg: number,
+  px: number, py: number,
+  mapW: number, mapH: number,
+  wallSoftX: number, wallSoftY: number
+): RotateTurretCommand {
+  const clamped = Math.max(-10, Math.min(10, rotDeg));
+  let targetHeading = normalizeAngle(currentHeading + clamped);
+
+  const wallConstraints = [
+    { dist: py,        approachHeading: 0,   soft: wallSoftY },  // top
+    { dist: mapH - py, approachHeading: 180, soft: wallSoftY },  // bottom
+    { dist: px,        approachHeading: 270, soft: wallSoftX },  // left
+    { dist: mapW - px, approachHeading: 90,  soft: wallSoftX },  // right
+  ];
+
+  for (const wc of wallConstraints) {
+    if (wc.dist < wc.soft) {
+      // Forbidden zone: within 90° of the wall's approach direction
+      if (Math.abs(angleDiff(targetHeading, wc.approachHeading)) < 90) {
+        const boundaryA = normalizeAngle(wc.approachHeading - 90);
+        const boundaryB = normalizeAngle(wc.approachHeading + 90);
+        const diffA = Math.abs(angleDiff(targetHeading, boundaryA));
+        const diffB = Math.abs(angleDiff(targetHeading, boundaryB));
+        targetHeading = diffA <= diffB ? boundaryA : boundaryB;
+      }
+    }
+  }
+
+  const safeRot = Math.max(-10, Math.min(10, angleDiff(currentHeading, targetHeading)));
+  return new RotateTurretCommand(safeRot);
+}
+
 // ─── Strategy ─────────────────────────────────────────────────────────────────
 
 export function executeStrategyForStep(
@@ -283,7 +322,7 @@ export function executeStrategyForStep(
         const b = bearing(px, py, targetX, targetY);
         const delta = angleDiff(tank.TurretHeading, b);
         const rotDeg = Math.max(-10, Math.min(10, delta));
-        return new RotateTurretCommand(rotDeg);
+        return safeTurretRotate(tank.TurretHeading, rotDeg, px, py, mapW, mapH, wallSoftX, wallSoftY);
       }
     }
   }
@@ -307,7 +346,7 @@ export function executeStrategyForStep(
       const centerBearing = bearing(px, py, mapW / 2, mapH / 2);
       const delta = angleDiff(tank.TurretHeading, centerBearing);
       const rotDeg = Math.max(-10, Math.min(10, delta));
-      return new RotateTurretCommand(rotDeg);
+      return safeTurretRotate(tank.TurretHeading, rotDeg, px, py, mapW, mapH, wallSoftX, wallSoftY);
     }
   }
 
@@ -324,5 +363,5 @@ export function executeStrategyForStep(
     }
   }
 
-  return new RotateTurretCommand(SWEEP_ANGLE * sweepDirection);
+  return safeTurretRotate(tank.TurretHeading, SWEEP_ANGLE * sweepDirection, px, py, mapW, mapH, wallSoftX, wallSoftY);
 }
