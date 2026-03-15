@@ -4,20 +4,17 @@ import type { EnvironmentMessage, StepState } from './messages';
 const BANTER_LINES = [
   "PAINT IT DEAD!!",
   "PAIN! PAIN! PAINTBOT!",
-  "PAIn'T no thing...",
+  "PAIN'T no thing to kill ya...",
   "PAINTBOTS, ROLL OUT!",
   "01101111 01110111 01101110",
-  "ur pixels are showing, tin",
-  "colour me unimpressed, mate",
-  "PaintBot Army rulez!!",
-  "splash and destroy!!",
-  "00110001 00110000 00110000",
+  "Puttin' the AI in PAINT!",
+  "Paint me unimpressed, mate",
 ];
 
 const CRITICAL_LINES = [
-  "gah they got my red coat!!",
-  "not the paint tank!!",
-  "reloading dignity...",
+  "Feeling the Pain(t)...",
+  "PAAAAIIIIIINNNNNNNN...t",
+  "Ugh! Need...Paintkillers...",
 ];
 
 export function createBanter(
