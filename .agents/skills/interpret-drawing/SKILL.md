@@ -19,9 +19,4 @@ You can use your own interpretation and format in this case.
 ## Secondary flavor
 
 Also write a flavorful description of the image and strategy into a file in markdown: `/intermediary/flavor-text.md`.
-Randomly pick one of these styles and use jests, jokes, puns, etc. liberally:
-
-- Fake old Shakespearean description with great disdain for the enemy
-- Robotic futuristic "All enemies must die." style
-- Like a cartoon army commander proud of their tank army
-- As a rapper dissing their tank enemies
+Write it as a rapper dissing their tank enemies in a British rap battle style (don't hold back, diss them harddddd!).
