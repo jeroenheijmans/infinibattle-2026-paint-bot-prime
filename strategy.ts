@@ -18,6 +18,14 @@ let bodyTurnDirection: number = 1;     // +1 = CW, -1 = CCW for wall-avoidance b
 let bodyTurnHoldCount: number = 0;     // steps of current body-turn direction
 let trackedTankId: number | null = null;
 let trackedLostCount: number = 0;
+let specialMode: boolean = false;
+let specialModeStartStep: number = -100;
+let specialModeCooldownUntil: number = 0;
+let specialModeEntryHealth: number = 10;
+let specialModeTargetPowerupId: number = -1;
+let specialModeTargetX: number = 0;
+let specialModeTargetY: number = 0;
+let specialModeTargetMissedSteps: number = 0;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -211,6 +219,73 @@ export function executeStrategyForStep(
     }
   }
 
+  // ── 2.5. SPECIAL mode: powerup collection ─────────────────────────────────────
+
+  // Entry check (only when outside cooldown, health low enough, and a qualifying powerup exists)
+  if (!specialMode && state.Step >= specialModeCooldownUntil && tank.Health.Value <= 8) {
+    const healingNear = PowerupScans.filter(p => {
+      if (p.Type !== 'Healing') return false;
+      const d = dist(px, py, p.Location.X, p.Location.Y);
+      const bodyDelta = Math.abs(angleDiff(tank.Heading, bearing(px, py, p.Location.X, p.Location.Y)));
+      return d < mapW * 0.7 && bodyDelta < 90;
+    }).sort((a, b) =>
+      dist(px, py, a.Location.X, a.Location.Y) - dist(px, py, b.Location.X, b.Location.Y)
+    );
+    const candidate = healingNear[0];
+    if (candidate) {
+      const myDist = dist(px, py, candidate.Location.X, candidate.Location.Y);
+      const friendlyCloser = TankScans.some(s => {
+        if (s.IsEnemy) return false;
+        return dist(s.Location.X, s.Location.Y, candidate.Location.X, candidate.Location.Y) < myDist;
+      });
+      if (!friendlyCloser) {
+        specialMode = true;
+        specialModeStartStep = state.Step;
+        specialModeEntryHealth = tank.Health.Value;
+        specialModeTargetPowerupId = candidate.Id;
+        specialModeTargetX = candidate.Location.X;
+        specialModeTargetY = candidate.Location.Y;
+        specialModeTargetMissedSteps = 0;
+      }
+    }
+  }
+
+  // Exit check (only after minimum 10 steps in SPECIAL mode)
+  if (specialMode) {
+    // Track how many consecutive steps the powerup is absent from the scan cone.
+    // The scan cone is only 10°-wide and sweeping, so absence just means the turret
+    // is pointing elsewhere — not that the powerup is gone. Only exit when absent
+    // for 25+ consecutive steps (powerup was likely collected or despawned) or healed.
+    const powerupCurrentlyVisible = PowerupScans.some(p => p.Id === specialModeTargetPowerupId);
+    if (powerupCurrentlyVisible) {
+      specialModeTargetMissedSteps = 0;
+    } else {
+      specialModeTargetMissedSteps++;
+    }
+
+    if (state.Step - specialModeStartStep >= 10) {
+      const healed = tank.Health.Value > specialModeEntryHealth;
+      if (specialModeTargetMissedSteps >= 25 || healed) {
+        specialMode = false;
+        specialModeCooldownUntil = state.Step + 8;
+      }
+    }
+  }
+
+  // Navigate straight to powerup in SPECIAL mode
+  if (specialMode) {
+    const b = bearing(px, py, specialModeTargetX, specialModeTargetY);
+    const delta = angleDiff(tank.Heading, b);
+    if (Math.abs(delta) > 3) {
+      const maxRot = 10 - 0.75 * Math.min(Math.abs(tank.Velocity), 8);
+      return new RotateCommand(Math.sign(delta) * Math.min(maxRot, Math.abs(delta)));
+    }
+    if (tank.Velocity < ACCEL_THRESHOLD) {
+      return new AccelerateCommand();
+    }
+    // Already aligned at speed — fall through to turret sweep while on course
+  }
+
   // ── 3. Maintain top speed ────────────────────────────────────────────────────
 
   if (tank.Velocity < ACCEL_THRESHOLD) {
@@ -218,40 +293,39 @@ export function executeStrategyForStep(
   }
 
   // ── 3.5. Soft wall zone: begin turning early for smooth perimeter loop ────────
-  //
-  // Triggers before turret commands so steering doesn't lose to sweep/tracking.
-  // Fire and acceleration still happen first (priorities 2 & 3 above).
-
-  let softWall: typeof walls[0] | null = null;
-  for (const wall of walls) {
-    if (wall.dist < wall.soft && Math.abs(angleDiff(tank.Heading, wall.approachHeading)) < 90) {
-      if (!softWall || wall.dist < softWall.dist) {
-        softWall = wall;
+  // Skipped in SPECIAL mode — powerup navigation controls body steering there.
+  if (!specialMode) {
+    let softWall: typeof walls[0] | null = null;
+    for (const wall of walls) {
+      if (wall.dist < wall.soft && Math.abs(angleDiff(tank.Heading, wall.approachHeading)) < 90) {
+        if (!softWall || wall.dist < softWall.dist) {
+          softWall = wall;
+        }
       }
     }
-  }
 
-  if (softWall !== null) {
-    const wallApproach = softWall.approachHeading;
-    const optionA = normalizeAngle(wallApproach + 90);
-    const optionB = normalizeAngle(wallApproach - 90);
-    const diffA = Math.abs(angleDiff(tank.Heading, optionA));
-    const diffB = Math.abs(angleDiff(tank.Heading, optionB));
-    const desiredHeading = diffA <= diffB ? optionA : optionB;
-    const delta = angleDiff(tank.Heading, desiredHeading);
+    if (softWall !== null) {
+      const wallApproach = softWall.approachHeading;
+      const optionA = normalizeAngle(wallApproach + 90);
+      const optionB = normalizeAngle(wallApproach - 90);
+      const diffA = Math.abs(angleDiff(tank.Heading, optionA));
+      const diffB = Math.abs(angleDiff(tank.Heading, optionB));
+      const desiredHeading = diffA <= diffB ? optionA : optionB;
+      const delta = angleDiff(tank.Heading, desiredHeading);
 
-    const newDirection = delta >= 0 ? 1 : -1;
-    if (bodyTurnHoldCount >= MIN_BODY_HOLD) {
-      if (newDirection !== bodyTurnDirection) {
-        bodyTurnDirection = newDirection;
-        bodyTurnHoldCount = 0;
+      const newDirection = delta >= 0 ? 1 : -1;
+      if (bodyTurnHoldCount >= MIN_BODY_HOLD) {
+        if (newDirection !== bodyTurnDirection) {
+          bodyTurnDirection = newDirection;
+          bodyTurnHoldCount = 0;
+        }
       }
-    }
-    bodyTurnHoldCount++;
+      bodyTurnHoldCount++;
 
-    const maxRot = 10 - 0.75 * Math.min(Math.abs(tank.Velocity), 8);
-    const rotDeg = Math.sign(bodyTurnDirection) * Math.min(maxRot, Math.abs(delta));
-    return new RotateCommand(rotDeg);
+      const maxRot = 10 - 0.75 * Math.min(Math.abs(tank.Velocity), 8);
+      const rotDeg = Math.sign(bodyTurnDirection) * Math.min(maxRot, Math.abs(delta));
+      return new RotateCommand(rotDeg);
+    }
   }
 
   // ── 4. Turret: track target or seesaw sweep ──────────────────────────────────
@@ -272,26 +346,6 @@ export function executeStrategyForStep(
     trackedLostCount++;
     if (trackedLostCount > TRACK_TIMEOUT) {
       trackedTankId = null;
-    }
-  }
-
-  // 4a. Powerup steering (lower priority than turret rotate but replaces it if needed)
-  if (PowerupScans.length > 0 && tank.Health.Value <= 6) {
-    const safePickups = PowerupScans.filter(p =>
-      p.Type === 'Healing' &&
-      p.Location.X > wallDangerX && p.Location.X < mapW - wallDangerX &&
-      p.Location.Y > wallDangerY && p.Location.Y < mapH - wallDangerY
-    );
-    if (safePickups.length > 0) {
-      const nearest = safePickups.reduce((a, b) =>
-        dist(px, py, a.Location.X, a.Location.Y) < dist(px, py, b.Location.X, b.Location.Y) ? a : b
-      );
-      const b = bearing(px, py, nearest.Location.X, nearest.Location.Y);
-      const delta = angleDiff(tank.Heading, b);
-      if (Math.abs(delta) > 15) {
-        const maxRot = 10 - 0.75 * Math.min(Math.abs(tank.Velocity), 8);
-        return new RotateCommand(Math.sign(delta) * Math.min(maxRot, Math.abs(delta)));
-      }
     }
   }
 
