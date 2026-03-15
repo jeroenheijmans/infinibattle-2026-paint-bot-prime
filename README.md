@@ -2,6 +2,21 @@
 
 Repo to create a Gearbots (Robowars clone) tank bot with a strategy derived from a crude drawing given by the user.
 
+⚠️ Looking at the final result, built with Anthropic's Sonnet 4.6 model in VSCode. No further updates to this codebase will be provided.
+
+## Avatar
+
+![Avatar image](/paintbot-prime-avatar.png)
+
+## Input strategy:
+
+![Strategy image](/paintbot-prime-strategy.png)
+
+See commit messages for prompts used.
+Run `bun run publish` to create a publishable zip file.
+
+## Base details
+
 **Runtime:** Bun (TypeScript). **Bot name:** PaintBot.
 
 2 teams × 3 tanks per match. Communication via stdin (JSON state) / stdout (text commands) at ~25 FPS.
