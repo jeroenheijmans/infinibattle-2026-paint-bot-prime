@@ -7,13 +7,17 @@ import {
   FireGunCommand,
   type IStepCommand,
 } from './commands';
-import type { EnvironmentMessage, StepState } from './messages';
+import type { TankDetails } from './helpers';
+import type { EnvironmentMessage, StatState, StepState, Vector } from './messages';
+
+
 
 export function executeStrategyForStep(
   environment: EnvironmentMessage,
   state: StepState,
+  // From TankId to TankDetails object
+  allObservedTankScanEvents: Record<number, TankDetails[]>
 ): IStepCommand {
-
-  // Dummy strategy, just try to fire the gun each step:
-  return new FireGunCommand();
+  // Dummy strategy:
+  return new RotateTurretCommand(10);
 }

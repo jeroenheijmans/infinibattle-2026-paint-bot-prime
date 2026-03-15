@@ -32,6 +32,27 @@ There will be three instances of your strategy running, one for each bot in your
 The bots cannot communicate easily, so don't try that.
 Often one strategy for all bots is great, but if you want to split things up you could do it based on your ID (either `[0, 1, 2]` if you're in team 1, or `[3, 4, 5]` if you're in team 2).
 
+## Starting positions
+
+Your bots are spawned in a circle, spread apart, facing outwards.
+
+## Scans of tanks
+
+The implementation will have helper code available that records state for tanks.
+Each tank may have 0 state (never seen before), 1 state (only scanned in 1 step), or many states (each with a recorded step number, which might be many steps apart).
+A scan records:
+
+- `Step` number for the step
+- `TankId` ID of the tank
+- `Location` x and y position
+- `TurretHeading` in degrees
+- `Heading` of the tank body in degrees
+- `Health` points
+- `IsEnemy` boolean
+
+The `Velocity` is not provided by the game in a scan, it has to be guessed from data.
+If the last two scans in the array are 8 or less steps apart, you can use math to derive (estimate / guess) it.
+
 ## Critical implementation patterns (learned from past runs)
 
 These are common bugs that have occurred before. You MUST address each one:
