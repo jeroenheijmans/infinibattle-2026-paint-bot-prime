@@ -12,7 +12,7 @@ Write the plan to the file `/intermediary/plan.md`.
 
 There will be three instances of your strategy running, one for each bot in your team.
 The bots cannot communicate easily, so don't try that.
-Often one strategy for all bots is great, but if you want to split things up you could do it based on your ID (either `[0, 1, 2]` if you're in team 1, or `[3, 4, 5]` if you're in team 2).
+Often one strategy for all bots is great, but if you want to split things up you could do it based on your ID as provided in available state when executing strategy (either `[0, 1, 2]` if you're in team 1 blue, or `[3, 4, 5]` if you're in team 2 red).
 
 ## Missing interpretation
 
@@ -33,4 +33,4 @@ The plan MUST include these sections (they address common implementation pitfall
 
 3. **Anti-flap strategy**: For both body rotation and turret sweep, describe how direction changes will be held for a minimum number of steps before allowing reversal. The hold must actually block reversals, not just be advisory.
 
-4. **Turret recovery**: Describe what happens when the turret ends up pointing outward (toward a close wall). The plan must include active correction steering turret back toward center to cover the most ground.
+4. **Turret recovery**: Describe what happens when the turret ends up pointing outward (toward a close wall). The plan must include active correction steering turret back toward center to cover the most ground. You can use the available telemetry (arena width and height, tank location, turret heading, and fixed 10 degree arc) to calculate how much "ground" a scanner covers (where the max would be when a turret points from one arena corner to the other).

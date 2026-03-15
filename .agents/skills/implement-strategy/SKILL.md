@@ -19,11 +19,11 @@ Some general tips while implementing:
 - When "turning" the tank for direction, prevent "flapping" by staying consistent for some time in your direction.
 - Beware of friendly fire, you can hurt tanks in your team if you scan them
 - The longer it has been since you last fired your gun, the more important it becomes to fire your gun (unless a friendly tank is in direct line of fire)
-- Liberally use the "Gun Energy", don't let it sit at max level too long
+- Liberally use the "Gun Energy", don't let it sit at max level too long.
 - You can add state to `/strategy.ts` outside the function to track things over time (e.g. how long it's been since you fired)
 - Don't accelerate if you are already at max speed, and if you want to cover some ground ensure your speed is high, near the max
 - High priority: try to stay at least 35 units away from the walls, as it's easy to get "stuck" on the walls.
-- Prefer not to sweep your scanner outwards if you're near a wall. Put differently: you can calculate the surface area your sweep (and intended sweep after a `RotateTurret` command) and usually consider a larger covered area preferable.
+- Prefer not to sweep your scanner outwards if you're near a wall. Put differently: you can calculate the surface area your swee (and intended sweep after a `RotateTurret` command) and usually consider a larger covered area preferable. You can use telemetry (tank position, turret heading, the fixed 10 degree arc, and arena dimensions) with math to calculate the surface area covered by a scan. Thus you could compare the relative "coverage" of various turret headings to determine optimal rotations.
 - When "tuning" for a strategy from the user, always check if your `Rotate` command is in the most efficient direction (clockwise or counterclockwise).
 
 ## Seperate bots
@@ -57,6 +57,8 @@ if sweepStepCount >= MIN_HOLD (e.g. 10):
 else:
   keep current direction no matter what
 ```
+
+The hold example of "10" frames is based on experience and typically works well. Other numbers between 8 and 25 can also be used if they better fit in the overall strategy.
 
 ### 3. Turret outward recovery
 

@@ -5,7 +5,7 @@ description: "Publish the final gearbot to participate in matches"
 
 # Publish Gearbot SKILL
 
-Execute this to publish:
+Execute this to publish (it'll run a custom cross-OS typescript script in `/publish.ts` to package things in a zip):
 
 ```
 bun run publish

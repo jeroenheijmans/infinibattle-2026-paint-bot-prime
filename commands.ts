@@ -12,24 +12,28 @@ export type IStepCommand =
 
 export type IFreeCommand = ChatCommand | LogCommand;
 
+// This is the exact opposite of ReverseCommand - both commands are equivalent except for the direction
 export class AccelerateCommand {
   toCommandString(): string {
     return "accelerate";
   }
 }
 
+// This is the exact opposite of AccelerateCommand - both commands are equivalent except for the direction
 export class ReverseCommand {
   toCommandString(): string {
     return "reverse";
   }
 }
 
+// Nearly never needed, unless you want to quickly come to a halt e.g. to avoid a bullet or wall collision
 export class BrakeCommand {
   toCommandString(): string {
     return "brake";
   }
 }
 
+// Rotates tank body (the turret Heading remains as-is while the body rotates)
 export class RotateCommand {
   constructor(public degrees: number) {}
 
@@ -38,6 +42,7 @@ export class RotateCommand {
   }
 }
 
+// The turret also determines the direction of the 10-degree scanner arc
 export class RotateTurretCommand {
   constructor(public degrees: number) {}
 
@@ -60,6 +65,7 @@ export class ChatCommand {
   }
 }
 
+// Only needed for human debugging
 export class LogCommand {
   constructor(public message: string) {}
 

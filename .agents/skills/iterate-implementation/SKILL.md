@@ -6,8 +6,9 @@ description: "Iterate on the implemented strategy code by reviewing and improvin
 # Iterate Implementation SKILL
 
 Evaluate the implemented `/strategy.ts` file.
-If you think it could work, just leave it alone.
-But if you spot obvious problems, try to fix them.
+If you spot obvious problems, try to fix them.
+Iterate this check max 2 times or stop if you made no more changes.
+After that the user will verify the solution manually.
 
 ## Review checklist
 
@@ -20,8 +21,6 @@ Check each of these specifically — they are common sources of bugs:
 3. **Anti-flap actually enforced**: If there's a sweep step counter or turn hold counter, verify it actually *blocks* direction changes during the hold period. A common bug is updating the counter but still allowing boundary checks to override it.
 
 4. **Turret outward recovery**: If the turret can end up pointing toward a wall (outward), verify there's active correction steering it back toward center — not just a sweep reversal that oscillates.
-
-5. **No TypeScript errors**: Run the IDE error check to catch type issues.
 
 ## Verification
 
