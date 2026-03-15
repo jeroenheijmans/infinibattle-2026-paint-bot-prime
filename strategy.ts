@@ -35,7 +35,7 @@ let slowMoLastEntryStep: number = -100;
 const MIN_SWEEP_HOLD = 12;
 const MIN_BODY_HOLD = 8;
 const TRACK_TIMEOUT = 20;
-const ACCEL_THRESHOLD = 7;
+const ACCEL_THRESHOLD = 6.5;
 const SWEEP_ANGLE = 8;
 
 // ─── Geometry helpers ─────────────────────────────────────────────────────────
