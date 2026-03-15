@@ -8,6 +8,7 @@ const PUB = `${ROOT}/.publish`;
 await mkdir(PUB, { recursive: true });
 
 const targets = [
+  "*.png",
   "intermediary/*.md",
   "*.ts",
   "*.json",
