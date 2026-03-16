@@ -29,6 +29,7 @@ let specialModeTargetMissedSteps: number = 0;
 let slowMoActive: boolean = false;
 let slowMoStartStep: number = -100;
 let slowMoLastEntryStep: number = -100;
+let lastFiredStep: number = -100;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -217,8 +218,15 @@ export function executeStrategyForStep(
       });
 
       if (!friendlyBlocking) {
+        lastFiredStep = state.Step;
         return new FireGunCommand();
       }
+    }
+
+    // Lucky shot: no enemies OR friendlies visible at all, and gun has been idle >30 steps
+    if (TankScans.length === 0 && state.Step - lastFiredStep > 30) {
+      lastFiredStep = state.Step;
+      return new FireGunCommand();
     }
   }
 
