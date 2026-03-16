@@ -294,13 +294,13 @@ export function executeStrategyForStep(
   // SLOWMO mode: 1% random chance each step for tanks with ID divisible by 3,
   // gated by a 40-step cooldown. Skips acceleration for 10 steps so the tank
   // briefly decelerates (friction) to confuse enemies.
-  if (tank.Id % 3 === 0) {
-    if (!slowMoActive && state.Step - slowMoLastEntryStep > 40 && Math.random() < 0.01) {
+  if (tank.Id % 3 !== 0 && !specialMode && state.Step > 25) {
+    if (!slowMoActive && state.Step - slowMoLastEntryStep > 25 && Math.random() < 0.01) {
       slowMoActive = true;
       slowMoStartStep = state.Step;
       slowMoLastEntryStep = state.Step;
     }
-    if (slowMoActive && state.Step - slowMoStartStep >= 40) {
+    if (slowMoActive && state.Step - slowMoStartStep >= 65) {
       slowMoActive = false;
     }
   }
