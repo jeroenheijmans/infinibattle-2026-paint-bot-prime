@@ -238,7 +238,7 @@ export function executeStrategyForStep(
       if (p.Type !== 'Healing') return false;
       const d = dist(px, py, p.Location.X, p.Location.Y);
       const bodyDelta = Math.abs(angleDiff(tank.Heading, bearing(px, py, p.Location.X, p.Location.Y)));
-      return d < mapW * 0.7 && bodyDelta < 90;
+      return d < mapW * 0.7 && bodyDelta < 130;
     }).sort((a, b) =>
       dist(px, py, a.Location.X, a.Location.Y) - dist(px, py, b.Location.X, b.Location.Y)
     );
@@ -302,6 +302,7 @@ export function executeStrategyForStep(
   // SLOWMO mode: 1% random chance each step for tanks with ID divisible by 3,
   // gated by a 40-step cooldown. Skips acceleration for 10 steps so the tank
   // briefly decelerates (friction) to confuse enemies.
+  // Entry is already blocked by !specialMode (no SLOWMO while chasing a powerup).
   if (tank.Id % 3 !== 0 && !specialMode && state.Step > 25) {
     if (!slowMoActive && state.Step - slowMoLastEntryStep > 25 && Math.random() < 0.01) {
       slowMoActive = true;
@@ -311,6 +312,11 @@ export function executeStrategyForStep(
     if (slowMoActive && state.Step - slowMoStartStep >= 65) {
       slowMoActive = false;
     }
+  }
+  // Immediately exit SLOWMO if a healing powerup becomes visible — don't waste
+  // the approach window coasting at reduced speed.
+  if (slowMoActive && PowerupScans.some(p => p.Type === 'Healing')) {
+    slowMoActive = false;
   }
 
   if (!slowMoActive && tank.Velocity < ACCEL_THRESHOLD) {
