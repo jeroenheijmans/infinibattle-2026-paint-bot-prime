@@ -393,7 +393,14 @@ export function executeStrategyForStep(
         const b = bearing(px, py, targetX, targetY);
         const delta = angleDiff(tank.TurretHeading, b);
         const rotDeg = Math.max(-10, Math.min(10, delta));
-        return safeTurretRotate(tank.TurretHeading, rotDeg, px, py, mapW, mapH, wallSoftX, wallSoftY);
+        const trackCmd = safeTurretRotate(tank.TurretHeading, rotDeg, px, py, mapW, mapH, wallSoftX, wallSoftY);
+        // If the rotation was clamped to ~0 by safeTurretRotate but the turret isn't
+        // yet on target, the enemy bearing is blocked by a wall boundary. Fall through
+        // to seesaw so the turret keeps moving instead of freezing on the boundary.
+        if (Math.abs(trackCmd.degrees) >= 1 || Math.abs(delta) < 1) {
+          return trackCmd;
+        }
+        // else: fall through to seesaw sweep
       }
     }
   }
@@ -434,5 +441,15 @@ export function executeStrategyForStep(
     }
   }
 
-  return safeTurretRotate(tank.TurretHeading, SWEEP_ANGLE * sweepDirection, px, py, mapW, mapH, wallSoftX, wallSoftY);
+  // Compute the seesaw rotation and check if safeTurretRotate wall-clamps it to ~0.
+  // This happens when the turret is sitting exactly at a wall boundary and the sweep
+  // direction keeps pushing into the forbidden zone — the turret freezes there.
+  // Detect this and immediately flip to the other direction so the turret always moves.
+  const seesawCmd = safeTurretRotate(tank.TurretHeading, SWEEP_ANGLE * sweepDirection, px, py, mapW, mapH, wallSoftX, wallSoftY);
+  if (Math.abs(seesawCmd.degrees) < 1) {
+    sweepDirection *= -1;
+    sweepHoldCount = 0;
+    return safeTurretRotate(tank.TurretHeading, SWEEP_ANGLE * sweepDirection, px, py, mapW, mapH, wallSoftX, wallSoftY);
+  }
+  return seesawCmd;
 }
